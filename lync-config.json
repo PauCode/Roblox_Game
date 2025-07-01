@@ -1,0 +1,11 @@
+{
+	"Debug": false,
+	"GenerateSourcemap": true,
+	"GithubAccessToken": "",
+	"AutoUpdate": false,
+	"AutoUpdate_UsePrereleases": false,
+	"AutoUpdate_Repo": "Iron-Stag-Games/Lync",
+	"AutoUpdate_LatestId": 0,
+	"Path_RobloxPlugins": "%LOCALAPPDATA%/Roblox/Plugins",
+	"JobCommands": {}
+}
