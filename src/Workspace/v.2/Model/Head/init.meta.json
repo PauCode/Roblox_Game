@@ -1,4 +1,10 @@
 {
   "className": "MeshPart",
-  "ignoreUnknownInstances": true
+  "properties": {
+    "CFrame": [-1.900016, 6.4, -1.899986, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+    "InitialSize": [215.387481, 243.44873, 216.277404],
+    "MeshContent": "rbxassetid://13804402137",
+    "Size": [1, 1.2, 1]
+  },
+  "keepUnknowns": true
 }

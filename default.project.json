@@ -3,27 +3,27 @@
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "$ignoreUnknownInstances": true,
-      "$path": "src/ReplicatedStorage"
+      "$path": "src/ReplicatedStorage",
+      "$keepUnknowns": true
     },
     "ServerScriptService": {
-      "$ignoreUnknownInstances": true,
-      "$path": "src/ServerScriptService"
+      "$path": "src/ServerScriptService",
+      "$keepUnknowns": true
     },
     "StarterPlayer": {
-      "$ignoreUnknownInstances": true,
       "StarterCharacterScripts": {
-        "$ignoreUnknownInstances": true,
-        "$path": "src/StarterPlayer/StarterCharacterScripts"
+        "$path": "src/StarterPlayer/StarterCharacterScripts",
+        "$keepUnknowns": true
       },
       "StarterPlayerScripts": {
-        "$ignoreUnknownInstances": true,
-        "$path": "src/StarterPlayer/StarterPlayerScripts"
-      }
+        "$path": "src/StarterPlayer/StarterPlayerScripts",
+        "$keepUnknowns": true
+      },
+      "$keepUnknowns": true
     },
     "Workspace": {
-      "$ignoreUnknownInstances": true,
-      "$path": "src/Workspace"
+      "$path": "src/Workspace",
+      "$keepUnknowns": true
     }
   }
 }

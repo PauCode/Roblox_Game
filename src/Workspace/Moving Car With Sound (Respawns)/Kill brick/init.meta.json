@@ -1,4 +1,7 @@
 {
   "className": "Part",
-  "ignoreUnknownInstances": true
+  "properties": {
+    "CFrame": [-4.642553, 0.6, -6.723415, 1, 0, 0, 0, 1, 0, 0, 0, 1]
+  },
+  "keepUnknowns": true
 }
