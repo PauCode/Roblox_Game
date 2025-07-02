@@ -89,6 +89,13 @@ local bobbingAmount = 0.1
 local crouchCamTargetOffset = Vector3.new(0, -1.46 + 0.08, 0)
 local currentCrouchCamOffset = Vector3.new(0, 0, 0)
 
+-- FOV values
+local FOV_WALK = 70
+local FOV_RUN = 95
+local FOV_PANIC = 111
+local FOV_CROUCH = 65
+local lastTargetFOV = FOV_WALK
+
 -- HUD CLEANUP
 local function removeOldStaminaHUD()
 	local gui = player:FindFirstChild("PlayerGui")
@@ -547,7 +554,7 @@ RunService.RenderStepped:Connect(function(dt)
 			cam.FieldOfView = cam.FieldOfView + (110 - cam.FieldOfView) * math.clamp(dt * 3, 0, 1)
 			cam.CFrame = cam.CFrame * CFrame.new(math.random(-1,1)*0.03, math.random(-1,1)*0.03, 0)
 		elseif isRunning then
-			cam.FieldOfView = cam.FieldOfView + (85 - cam.FieldOfView) * math.clamp(dt * 3, 0, 1)
+			cam.FieldOfView = cam.FieldOfView + (FOV_RUN - cam.FieldOfView) * math.clamp(dt * 3, 0, 1)
 			blurEffect.Size = 0
 			if runStamina < 40 then
 				saturationEffect.Saturation = -1 + (runStamina / 40)
@@ -556,7 +563,7 @@ RunService.RenderStepped:Connect(function(dt)
 				saturationEffect.Enabled = false
 			end
 		else
-			cam.FieldOfView = cam.FieldOfView + (70 - cam.FieldOfView) * math.clamp(dt * 6, 0, 1)
+			cam.FieldOfView = cam.FieldOfView + (FOV_WALK - cam.FieldOfView) * math.clamp(dt * 6, 0, 1)
 			blurEffect.Size = 0
 			saturationEffect.Enabled = false
 		end
@@ -576,16 +583,16 @@ RunService.RenderStepped:Connect(function(dt)
 
 
 
--- FORCEFULLY block all jump attempts if Ctrl is held (even if other scripts or Roblox core try to set it)
-RunService.Stepped:Connect(function()
-	if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-		if humanoid.Jump then
-			humanoid.Jump = false
+	-- FORCEFULLY block all jump attempts if Ctrl is held (even if other scripts or Roblox core try to set it)
+	RunService.Stepped:Connect(function()
+		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+			if humanoid.Jump then
+				humanoid.Jump = false
+			end
 		end
-	end
-end)
+	end)
 
-updateAnimState(dt)
+	updateAnimState(dt)
 end)
 
 UIS.InputBegan:Connect(function(input, gameProcessed)
