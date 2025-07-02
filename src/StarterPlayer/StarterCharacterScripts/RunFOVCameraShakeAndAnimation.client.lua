@@ -357,6 +357,37 @@ local lastFatigued = false
 local lowStaminaSoundPlaying = false
 local lowHealthOverlay = false
 
+-- Centralized FOV logic
+local function getTargetFOV()
+	if isFatigued then
+		return 55
+	elseif isCrouching then
+		return FOV_CROUCH
+	elseif isPanicking then
+		return FOV_PANIC
+	elseif isRunning then
+		return FOV_RUN
+	else
+		return FOV_WALK
+	end
+end
+
+-- Centralized camera update
+local function updateCamera(dt)
+	local desiredFOV = getTargetFOV()
+	local fovLerpSpeed = 6
+	if isPanicking then
+		fovLerpSpeed = 3
+	elseif isRunning then
+		fovLerpSpeed = 3
+	elseif isCrouching then
+		fovLerpSpeed = 8
+	elseif isFatigued then
+		fovLerpSpeed = 2
+	end
+	cam.FieldOfView = cam.FieldOfView + (desiredFOV - cam.FieldOfView) * math.clamp(dt * fovLerpSpeed, 0, 1)
+end
+
 RunService.RenderStepped:Connect(function(dt)
 	humanoid.WalkSpeed = humanoid.WalkSpeed + (targetWalkSpeed - humanoid.WalkSpeed) * math.clamp(dt * SPEED_LERP_RATE, 0, 1)
 
@@ -510,14 +541,14 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- Fatigue and cooldown
+	-- Fatigue y cooldown
 	if isFatigued then
 		local elapsed = tick() - fatigueStartTime
 		local osc = math.sin(elapsed * 4) * 1.2
 		saturationEffect.Saturation = math.clamp(osc, -1, 1)
 		saturationEffect.Enabled = true
 		blurEffect.Size = 10
-		cam.FieldOfView = 55 + math.sin(elapsed * 2) * 8
+		updateCamera(dt)
 		targetWalkSpeed = WALK_SPEED
 		humanoid.WalkSpeed = WALK_SPEED
 		isRunning = false
@@ -527,14 +558,14 @@ RunService.RenderStepped:Connect(function(dt)
 			isFatigued = false
 			saturationEffect.Enabled = false
 			blurEffect.Size = 0
-			cam.FieldOfView = 70
+			cam.FieldOfView = FOV_WALK
 			panicCooldownActive = true
 			panicCooldownStart = tick()
 		end
 	elseif panicCooldownActive then
 		saturationEffect.Enabled = false
 		blurEffect.Size = 0
-		cam.FieldOfView = 70
+		updateCamera(dt)
 		-- Regenerate panic bar visually and logically during cooldown
 		local elapsed = math.clamp(tick() - panicCooldownStart, 0, panicCooldownTime)
 		local cdLeft = math.max(0, panicCooldownTime - elapsed)
@@ -546,15 +577,14 @@ RunService.RenderStepped:Connect(function(dt)
 	else
 		if isPanicking then
 			dizzyAngle += dt * 2
-			-- Milder shake: reduce angle and translation multipliers
 			local dizzyX = math.sin(dizzyAngle) * 0.02
 			local dizzyY = math.cos(dizzyAngle * 1.5) * 0.02
 			cam.CFrame = cam.CFrame * CFrame.Angles(dizzyX, dizzyY, 0)
 			blurEffect.Size = 0
-			cam.FieldOfView = cam.FieldOfView + (110 - cam.FieldOfView) * math.clamp(dt * 3, 0, 1)
+			updateCamera(dt)
 			cam.CFrame = cam.CFrame * CFrame.new(math.random(-1,1)*0.03, math.random(-1,1)*0.03, 0)
 		elseif isRunning then
-			cam.FieldOfView = cam.FieldOfView + (FOV_RUN - cam.FieldOfView) * math.clamp(dt * 3, 0, 1)
+			updateCamera(dt)
 			blurEffect.Size = 0
 			if runStamina < 40 then
 				saturationEffect.Saturation = -1 + (runStamina / 40)
@@ -563,7 +593,7 @@ RunService.RenderStepped:Connect(function(dt)
 				saturationEffect.Enabled = false
 			end
 		else
-			cam.FieldOfView = cam.FieldOfView + (FOV_WALK - cam.FieldOfView) * math.clamp(dt * 6, 0, 1)
+			updateCamera(dt)
 			blurEffect.Size = 0
 			saturationEffect.Enabled = false
 		end
@@ -577,11 +607,19 @@ RunService.RenderStepped:Connect(function(dt)
 		fatigueStartTime = tick()
 	end
 
-
-
-
-
-
+	-- Centralized FOV update
+	targetFOV = getTargetFOV()
+	local fovLerpSpeed = 6
+	if isPanicking then
+		fovLerpSpeed = 3
+	elseif isRunning then
+		fovLerpSpeed = 4
+	elseif isCrouching then
+		fovLerpSpeed = 8
+	elseif isFatigued then
+		fovLerpSpeed = 2
+	end
+	cam.FieldOfView = cam.FieldOfView + (targetFOV - cam.FieldOfView) * math.clamp(dt * fovLerpSpeed, 0, 1)
 
 	-- FORCEFULLY block all jump attempts if Ctrl is held (even if other scripts or Roblox core try to set it)
 	RunService.Stepped:Connect(function()
@@ -675,7 +713,7 @@ end)
 
 humanoid.Died:Connect(function()
 	if cam then
-		cam.FieldOfView = 70
+		cam.FieldOfView = FOV_WALK
 		blurEffect.Size = 0
 		saturationEffect.Enabled = false
 	end
