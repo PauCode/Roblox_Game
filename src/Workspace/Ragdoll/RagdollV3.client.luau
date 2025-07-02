@@ -268,12 +268,11 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 end)
 
-humanoid.Died:Connect(function()
-    isDead = true
-    ragdolling = false
-end)
+-- Remove redundant humanoid.Died connection (handled in RagdollV3)
+
+-- Reset ragdoll state when character is reparented (e.g. respawn)
 char.AncestryChanged:Connect(function()
-    if not char:IsDescendantOf(workspace) then
+    if char:IsDescendantOf(workspace) then
         isDead = false
         ragdolling = false
     end
