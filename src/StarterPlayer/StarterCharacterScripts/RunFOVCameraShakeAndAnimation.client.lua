@@ -3,7 +3,7 @@
   Place this script in StarterCharacterScripts.
   - HUD visual agresivo y estresante, con efectos de alerta, parpadeo, sonidos y overlays sangrientos.
 --]]
-sada
+
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -51,6 +51,7 @@ local DOUBLE_TAP_TIME = 0.3
 -- runStamina is now managed by StaminaModule
 
 -- (VaultDeductStamina undo: removed global vault stamina deduction logic)
+local runStamina = 100
 local panicStamina = 100
 local isRunning = false
 local isPanicking = false
@@ -68,11 +69,23 @@ local panicSaturation = 0
 local runLocked = false
 
 -- Animation state
+
 local animator = humanoid:WaitForChild("Animator")
 local currentAnim = nil
 local currentAnimId = nil
 local lastState = nil
 local lastAnimType = nil
+
+-- Handle character respawn to re-acquire humanoid and animator
+player.CharacterAdded:Connect(function(newChar)
+	character = newChar
+	humanoid = character:WaitForChild("Humanoid")
+	animator = humanoid:WaitForChild("Animator")
+	currentAnim = nil
+	currentAnimId = nil
+	lastState = nil
+	lastAnimType = nil
+end)
 
 -- Idle switching logic
 local idleToggle = true
