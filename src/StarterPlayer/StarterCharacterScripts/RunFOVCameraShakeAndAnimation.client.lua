@@ -1,9 +1,9 @@
---[[ 
+																																															--[[ 
   Script: Advanced Run, Panic, Crouch, Stamina, FOV, Camera Shake, Animation Handler, Horror HUD, Sound & Blood Overlay
   Place this script in StarterCharacterScripts.
   - HUD visual agresivo y estresante, con efectos de alerta, parpadeo, sonidos y overlays sangrientos.
 --]]
-
+sada
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -20,7 +20,7 @@ local anims = {
 	idle1 = "rbxassetid://111219973667367",
 	idle2 = "rbxassetid://96792590819142",
 	walk = "rbxassetid://74177399285067",
-	run = "rbxassetid://70377042525324",
+	run = "rbxassetid://131590005888247",
 	panic = "rbxassetid://107254584850709",
 	climb = "rbxassetid://14874131805",
 	climb_idle = "rbxassetid://14874286370",
@@ -42,13 +42,15 @@ local SOUND_HEART = "Heartbeat"
 local BLOOD_OVERLAY = "BloodOverlay"
 
 -- Movement and stamina settings
-local WALK_SPEED = 14
-local RUN_SPEED = 26
-local PANIC_SPEED = 40
-local CROUCH_SPEED = 7
+local WALK_SPEED = 12
+local RUN_SPEED = 32
+local PANIC_SPEED = 45
+local CROUCH_SPEED = 5
 local SPEED_LERP_RATE = 8
 local DOUBLE_TAP_TIME = 0.3
-local runStamina = 100
+-- runStamina is now managed by StaminaModule
+
+-- (VaultDeductStamina undo: removed global vault stamina deduction logic)
 local panicStamina = 100
 local isRunning = false
 local isPanicking = false
@@ -358,18 +360,38 @@ local lowStaminaSoundPlaying = false
 local lowHealthOverlay = false
 
 -- Centralized FOV logic
-local function getTargetFOV()
-	if isFatigued then
-		return 55
-	elseif isCrouching then
-		return FOV_CROUCH
-	elseif isPanicking then
-		return FOV_PANIC
-	elseif isRunning then
-		return FOV_RUN
-	else
-		return FOV_WALK
+-- GTA4-style FOV offset: look up/down zoom effect
+local function getGTA4FOVOffset()
+	local cam = workspace.CurrentCamera
+	local camLook = cam.CFrame.LookVector
+	local upAmount = camLook:Dot(Vector3.new(0,1,0)) -- 1 = up, 0 = horizontal, -1 = down
+	local gta4Offset = 0
+	if upAmount > 0.4 then
+		gta4Offset = (FOV_RUN - FOV_WALK) * ((upAmount - 0.4) / 0.6) -- up to +25 when looking up
+	elseif upAmount < -0.4 then
+		gta4Offset = -7 * ((-upAmount - 0.4) / 0.6) -- up to -7 when looking down
 	end
+	return gta4Offset
+end
+
+local function getTargetFOV()
+	local fov, reason
+	if isFatigued then
+		fov, reason = 55, "fatigued"
+	elseif isCrouching then
+		fov, reason = FOV_CROUCH, "crouching"
+	elseif isPanicking then
+		fov, reason = FOV_PANIC, "panicking"
+	elseif isRunning then
+		fov, reason = FOV_RUN, "running"
+	else
+		fov, reason = FOV_WALK, "walking"
+	end
+	-- Add GTA4-style FOV offset
+	local gta4Offset = getGTA4FOVOffset()
+	local finalFOV = fov + gta4Offset
+	print("[DEBUG] getTargetFOV: reason=", reason, "isRunning=", isRunning, "isCrouching=", isCrouching, "isPanicking=", isPanicking, "isFatigued=", isFatigued, "FOV=", fov, "GTA4Offset=", gta4Offset, "finalFOV=", finalFOV)
+	return finalFOV
 end
 
 -- Centralized camera update
@@ -385,7 +407,33 @@ local function updateCamera(dt)
 	elseif isFatigued then
 		fovLerpSpeed = 2
 	end
+	print("[DEBUG] updateCamera: isRunning=", isRunning, "isCrouching=", isCrouching, "isPanicking=", isPanicking, "isFatigued=", isFatigued, "desiredFOV=", desiredFOV, "currentFOV=", cam.FieldOfView)
+	-- For debugging, force FOV instantly:
+	-- cam.FieldOfView = desiredFOV
 	cam.FieldOfView = cam.FieldOfView + (desiredFOV - cam.FieldOfView) * math.clamp(dt * fovLerpSpeed, 0, 1)
+end
+
+-- Camera pitch clamp settings
+local MAX_UP_ANGLE = math.rad(70)   -- 70 degrees up from horizontal
+local MAX_DOWN_ANGLE = math.rad(-70) -- 70 degrees down from horizontal
+
+local function clampCameraPitch(cam)
+	-- Get camera's current CFrame and decompose to get pitch
+	local look = cam.CFrame.LookVector
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	if flatLook.Magnitude < 1e-4 then return end -- avoid division by zero
+	local flatLookUnit = flatLook.Unit
+	local up = Vector3.new(0,1,0)
+	local pitch = math.asin(look.Y)
+	if pitch > MAX_UP_ANGLE then
+		-- Clamp up
+		local axis = flatLookUnit:Cross(up)
+		cam.CFrame = CFrame.lookAt(cam.CFrame.Position, cam.CFrame.Position + flatLookUnit * math.cos(MAX_UP_ANGLE) + up * math.sin(MAX_UP_ANGLE))
+	elseif pitch < MAX_DOWN_ANGLE then
+		-- Clamp down
+		local axis = flatLookUnit:Cross(up)
+		cam.CFrame = CFrame.lookAt(cam.CFrame.Position, cam.CFrame.Position + flatLookUnit * math.cos(MAX_DOWN_ANGLE) + up * math.sin(MAX_DOWN_ANGLE))
+	end
 end
 
 RunService.RenderStepped:Connect(function(dt)
@@ -403,13 +451,24 @@ RunService.RenderStepped:Connect(function(dt)
 
 	-- Only deplete stamina and allow running if moving
 	local moveInput = UIS:IsKeyDown(Enum.KeyCode.W) or UIS:IsKeyDown(Enum.KeyCode.A) or UIS:IsKeyDown(Enum.KeyCode.S) or UIS:IsKeyDown(Enum.KeyCode.D)
-	-- Prevent running while crouched
-	if isRunning and (isCrouching or isPanicking) then
-		isRunning = false
-		targetWalkSpeed = isCrouching and CROUCH_SPEED or WALK_SPEED
+	-- Fix: Only turn off running if crouching or panicking, not just if either is true
+	if isRunning then
+		if isCrouching then
+			isRunning = false
+			print("[DEBUG] isRunning set to false (crouching)")
+			targetWalkSpeed = CROUCH_SPEED
+		elseif isPanicking then
+			isRunning = false
+			print("[DEBUG] isRunning set to false (panicking)")
+			targetWalkSpeed = WALK_SPEED
+		elseif not moveInput then
+			isRunning = false
+			print("[DEBUG] isRunning set to false (no move input)")
+			targetWalkSpeed = WALK_SPEED
+		end
 	end
 	if isRunning and not isPanicking and moveInput then
-		runStamina -= dt * 10
+	runStamina -= dt * 10
 	else
 		-- Only regenerate stamina if not fatigued
 		if not isFatigued then
@@ -421,11 +480,6 @@ RunService.RenderStepped:Connect(function(dt)
 				local elapsed = math.clamp(tick() - panicCooldownStart, 0, panicCooldownTime)
 				panicStamina = 100 * (elapsed / panicCooldownTime)
 			end
-		end
-		-- If not moving, force running off
-		if isRunning and not isPanicking and not moveInput then
-			isRunning = false
-			targetWalkSpeed = WALK_SPEED
 		end
 	end
 
@@ -621,6 +675,9 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	cam.FieldOfView = cam.FieldOfView + (targetFOV - cam.FieldOfView) * math.clamp(dt * fovLerpSpeed, 0, 1)
 
+	-- Clamp camera pitch (prevents looking too far up or down)
+	clampCameraPitch(cam)
+
 	-- FORCEFULLY block all jump attempts if Ctrl is held (even if other scripts or Roblox core try to set it)
 	RunService.Stepped:Connect(function()
 		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
@@ -654,11 +711,12 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
 			updateAnimState()
 		else
 			-- First tap: just start running if allowed
-			if not isPanicking and runStamina > 5 and not isFatigued and not runLocked then
-				isRunning = true
-				targetWalkSpeed = RUN_SPEED
-				updateAnimState()
-			end
+		if not isPanicking and runStamina > 5 and not isFatigued and not runLocked then
+			isRunning = true
+			print("[DEBUG] isRunning set to true (InputBegan: LeftShift, running started)")
+			targetWalkSpeed = RUN_SPEED
+			updateAnimState()
+		end
 		end
 		lastShift = now
 	elseif input.KeyCode == Enum.KeyCode.LeftControl then
@@ -690,18 +748,19 @@ UIS.InputEnded:Connect(function(input, gameProcessed)
 			if panicStamina < 20 and not isFatigued then
 				isFatigued = true
 				fatigueStartTime = tick()
-				-- Optionally, also stop panic cooldown and start it after fatigue ends
-			else
-				-- Only force cooldown and bar refill if not already active
-				if not panicCooldownActive then
-					panicStamina = 0
-					panicCooldownActive = true
-					panicCooldownStart = tick()
-				end
+			elseif not panicCooldownActive then
+				panicStamina = 0
+				panicCooldownActive = true
+				panicCooldownStart = tick()
 			end
 		else
 			isRunning = false
 			targetWalkSpeed = WALK_SPEED
+			-- Fatigue if runStamina is at or below 20% on release
+			if runStamina <= 20 and not isFatigued then
+				isFatigued = true
+				fatigueStartTime = tick()
+			end
 		end
 		updateAnimState()
 	elseif input.KeyCode == Enum.KeyCode.LeftControl then

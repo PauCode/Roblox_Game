@@ -31,21 +31,13 @@ if game:GetService("Lighting"):FindFirstChild("GTA4Color") then
 	colorCorrection = game:GetService("Lighting"):FindFirstChild("GTA4Color")
 end
 
+-- COMPATIBILITY PATCH: FOV is now controlled by the main movement script (RunFOVCameraShakeAndAnimation.client.lua)
+-- This script only applies tilt, vignette, and color effes. Do NOT set cam.FieldOfView here!
+
 RunService.RenderStepped:Connect(function(dt)
 	local cam = workspace.CurrentCamera
 	local camLook = cam.CFrame.LookVector
 	local upAmount = camLook:Dot(Vector3.new(0,1,0)) -- 1 = arriba, 0 = horizontal, -1 = abajo
-	-- FOV dinámico: zoom-in al mirar abajo
-	local targetFov = BASE_FOV
-	if upAmount > 0.4 then
-		targetFov = BASE_FOV + (MAX_FOV - BASE_FOV) * ((upAmount - 0.4) / 0.6)
-	elseif upAmount < -0.4 then
-		targetFov = BASE_FOV - 7 * ((-upAmount - 0.4) / 0.6) -- hasta 7 menos al mirar abajo
-	end
-	if targetFov > MAX_FOV then targetFov = MAX_FOV end
-	if targetFov < BASE_FOV - 7 then targetFov = BASE_FOV - 7 end
-	lastFov = lastFov + (targetFov - lastFov) * (FOV_LERP_SPEED + dt)
-	cam.FieldOfView = lastFov
 
 	-- Tilt lateral según giro horizontal de la cámara respecto al personaje
 	local charLook = hrp.CFrame.LookVector

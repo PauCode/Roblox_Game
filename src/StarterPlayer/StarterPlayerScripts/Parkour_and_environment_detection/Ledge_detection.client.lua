@@ -1,9 +1,13 @@
 -- Simple ledge detection script for Roblox
 
+
+-- (VaultDeductStamina undo: removed all global vault stamina logic)
+
 local player = game.Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = char:FindFirstChild("HumanoidRootPart")
 local runService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- Update references on respawn
 player.CharacterAdded:Connect(function(newChar)
@@ -21,12 +25,28 @@ local lastDetectionTime = 0
 local DETECTION_COOLDOWN = 0.5 -- seconds
 
 -- Utility to create a "Hold G" prompt at a world position
+local activeLedgePos = nil -- Store the current ledge position for G key
+
+local promptPart = nil
+local promptBillboard = nil
+local promptTextLabel = nil
+
+local function destroyPrompt()
+    if promptPart and promptPart.Parent then
+        promptPart:Destroy()
+    end
+    promptPart = nil
+    promptBillboard = nil
+    promptTextLabel = nil
+    activeLedgePos = nil
+end
+
 local function createHoldGPrompt(worldPos)
     -- Remove any existing prompt
-    if workspace:FindFirstChild("LedgeHoldPrompt") then
-        workspace.LedgeHoldPrompt:Destroy()
-    end
-    local promptPart = Instance.new("Part")
+    destroyPrompt()
+    activeLedgePos = worldPos -- Set the active ledge position
+    print("[LedgeDetection] activeLedgePos set:", activeLedgePos)
+    promptPart = Instance.new("Part")
     promptPart.Name = "LedgeHoldPrompt"
     promptPart.Anchored = true
     promptPart.CanCollide = false
@@ -35,30 +55,23 @@ local function createHoldGPrompt(worldPos)
     promptPart.Transparency = 1
     promptPart.Parent = workspace
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "HoldGPromptGui"
-    billboard.Adornee = promptPart
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 2, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = promptPart
+    promptBillboard = Instance.new("BillboardGui")
+    promptBillboard.Name = "HoldGPromptGui"
+    promptBillboard.Adornee = promptPart
+    promptBillboard.Size = UDim2.new(0, 200, 0, 50)
+    promptBillboard.StudsOffset = Vector3.new(0, 2, 0)
+    promptBillboard.AlwaysOnTop = true
+    promptBillboard.Parent = promptPart
 
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = "HAHA mofo, you found the ledge!"
-    textLabel.TextColor3 = Color3.new(1, 1, 1)
-    textLabel.TextStrokeTransparency = 0.5
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.Parent = billboard
-
-    -- Optional: auto-remove after a few seconds
-    delay(2, function()
-        if promptPart and promptPart.Parent then
-            promptPart:Destroy()
-        end
-    end)
+    promptTextLabel = Instance.new("TextLabel")
+    promptTextLabel.Size = UDim2.new(1, 0, 1, 0)
+    promptTextLabel.BackgroundTransparency = 1
+    promptTextLabel.Text = "Press G to vaulty :)"
+    promptTextLabel.TextColor3 = Color3.new(1, 1, 1)
+    promptTextLabel.TextStrokeTransparency = 0.5
+    promptTextLabel.TextScaled = true
+    promptTextLabel.Font = Enum.Font.GothamBold
+    promptTextLabel.Parent = promptBillboard
 end
 
 local LEDGE_MIN_HEIGHT = 1 -- studs; ignore obstacles lower than this (e.g., carpets)
@@ -140,11 +153,65 @@ local function detectLedge()
 end
 
 
--- Check for ledges every 1 second
-local lastCheck = 0
+
+
 runService.RenderStepped:Connect(function()
-    if tick() - lastCheck >= 1 then
-        lastCheck = tick()
-        detectLedge()
+    local found, ledgePos = detectLedge()
+    -- Hide or show prompt text based on player distance to ledge
+    if promptPart and promptTextLabel and activeLedgePos then
+        local charPos = humanoidRootPart and humanoidRootPart.Position or Vector3.new(0,0,0)
+        local dist = (charPos - activeLedgePos).Magnitude
+        if dist < 5 then
+            promptTextLabel.Visible = true
+        else
+            promptTextLabel.Visible = false
+        end
+        -- If player is too far from ledge, destroy prompt
+        if dist > 10 then
+            print("[LedgeDetection] Player moved too far from ledge, destroying prompt.")
+            destroyPrompt()
+        end
+    elseif promptPart and not activeLedgePos then
+        -- Defensive: if prompt exists but no ledge, destroy
+        destroyPrompt()
+    end
+end)
+
+-- Move player to ledge when pressing G (if prompt is active)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    print("[LedgeDetection] InputBegan ANY:", input.KeyCode, "gameProcessed:", gameProcessed, "activeLedgePos:", activeLedgePos)
+    if input.KeyCode == Enum.KeyCode.G then
+        print("[LedgeDetection] G key pressed! (regardless of ledge)")
+    end
+    if input.KeyCode == Enum.KeyCode.G and activeLedgePos then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoidRootPart then
+            -- Deduct 5% stamina from Run meter if possible
+            -- (VaultDeductStamina undo: removed vault stamina deduction call)
+            end
+
+            -- Play animation in reverse (replace assetId with your animation)
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://71691533756386" -- Example: Roblox jump animation, replace with your own
+            local track = humanoid:LoadAnimation(anim)
+            track:Play()
+            -- Wait for animation to load so Length is available
+            while track.Length == 0 do
+                task.wait()
+            end
+            -- Set just before the end to ensure full reverse playback
+            track.TimePosition = math.max(track.Length - 0.05, 0)
+            track:AdjustSpeed(-1) -- Play in reverse
+
+            print("[LedgeDetection] Applying upward momentum. activeLedgePos:", activeLedgePos)
+            print("[LedgeDetection] HumanoidRootPart before:", humanoidRootPart.Position)
+            -- Apply upward velocity for a vault/boost effect (faster acceleration)
+            humanoidRootPart.Velocity = Vector3.new(humanoidRootPart.Velocity.X, 45, humanoidRootPart.Velocity.Z)
+            print("[LedgeDetection] G pressed: Upward momentum applied!")
+            print("[LedgeDetection] HumanoidRootPart after:", humanoidRootPart.Position)
+            destroyPrompt() -- Clean up prompt after use
+        else
+            print("[LedgeDetection] Could not find humanoid or root part!")
+        end
     end
 end)

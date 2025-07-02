@@ -11,10 +11,6 @@
       "$keepUnknowns": true
     },
     "StarterPlayer": {
-      "StarterCharacterScripts": {
-        "$path": "src/StarterPlayer/StarterCharacterScripts",
-        "$keepUnknowns": true
-      },
       "StarterPlayerScripts": {
         "$path": "src/StarterPlayer/StarterPlayerScripts",
         "$keepUnknowns": true
